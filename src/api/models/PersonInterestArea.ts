@@ -2,10 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Logout = {
-    /**
-     * Refresh token for logout
-     */
-    refresh: string;
+export type PersonInterestArea = {
+    interest_area_dict: Record<string, any>;
+    observation_id: number;
 };
 

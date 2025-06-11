@@ -2,10 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Logout = {
-    /**
-     * Refresh token for logout
-     */
-    refresh: string;
+export type PatchedInterestAreaUpdate = {
+    interest_area_name?: string;
+    trigger_names?: Array<string>;
 };
 

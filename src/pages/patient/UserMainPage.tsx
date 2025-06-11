@@ -5,17 +5,18 @@ import BottomNavigationBar from "@/components/ui/navigator-bar";
 import { useState, useEffect } from "react";
 import { useInterestAreasConcepts } from "@/utils/conceptLoader";
 import { InterestAreasService } from "@/api/services/InterestAreasService";
-import type { InterestArea } from "@/api/models/InterestArea";
+import type { PersonInterestArea } from "@/api/models/PersonInterestArea";
 import { Button } from "@/components/forms/button";
 import SuccessMessage from "@/components/ui/success-message";
 import ErrorMessage from "@/components/ui/error-message";
 import EditInterestDialog from "../../components/EditInterestsDialog";
 import { ConfirmDialog } from "@/components/ui/confirmDialog";
 
-// Extended interface for API response that includes the ID
-interface InterestAreaResponse extends InterestArea {
-  interest_area_id: number;
-  concept_id?: number;
+interface PersonInterestAreaResponse {
+  interest_area_dict: {
+    interest: Record<string, string[]>;
+  };
+  observation_id: number;
   is_temporary?: boolean; // Flag para identificar criados localmente
   is_deleted?: boolean; // Flag para identificar deletados localmente
 }
@@ -25,17 +26,17 @@ export default function UserMainPage() {
 
   // Estados principais
   const [userInterestObjects, setUserInterestObjects] = useState<
-    InterestAreaResponse[]
+    PersonInterestAreaResponse[]
   >([]);
   const [originalInterests, setOriginalInterests] = useState<
-    InterestAreaResponse[]
-  >([]); // Para comparar mudanças
+    PersonInterestAreaResponse[]
+  >([]);
   const [editionMode, setEditionMode] = useState(false);
   const [editingInterest, setEditingInterest] =
-    useState<InterestAreaResponse | null>(null);
+    useState<PersonInterestAreaResponse | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [interestToDelete, setInterestToDelete] =
-    useState<InterestAreaResponse | null>(null);
+    useState<PersonInterestAreaResponse | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   // Estados de sincronização
@@ -55,10 +56,30 @@ export default function UserMainPage() {
   useEffect(() => {
     const loadExistingInterests = async () => {
       try {
-        const userInterests =
-          (await InterestAreasService.personInterestAreasList()) as InterestAreaResponse[];
+        const response =
+          (await InterestAreasService.personInterestAreasList()) as unknown as PersonInterestAreaResponse;
+        console.log("API Response:", response); // Debug: Log the raw response
+
+        // Extract the dictionary from the response
+        const interestDict = response?.interest_area_dict || {};
+        const observationId = response?.observation_id || 0;
+
+        // Transform the dictionary into an array of InterestAreaResponse objects
+        const userInterests: PersonInterestAreaResponse[] = Object.entries(
+          interestDict
+        ).map(([interestName, triggersList], index) => ({
+          interest_area_id: observationId + index, // Use observation_id as base
+          interest_name: interestName,
+          triggers: (triggersList as string[]).map((name) => ({
+            trigger_name: name,
+          })),
+          is_temporary: false,
+          is_deleted: false,
+        }));
+
+        console.log("Transformed interests:", userInterests); // Debug
         setUserInterestObjects(userInterests);
-        setOriginalInterests([...userInterests]); // Cópia para comparação
+        setOriginalInterests([...userInterests]);
         setHasChanges(false);
       } catch (error) {
         console.error("Error loading user interests:", error);
@@ -72,11 +93,11 @@ export default function UserMainPage() {
   }, [isLoadingInterests, interestAreasOptions]);
 
   // Função para deletar interesse APENAS LOCALMENTE
-  const deleteInterestLocally = (interest: InterestAreaResponse) => {
+  const deleteInterestLocally = (interest: PersonInterestAreaResponse) => {
     if (interest.is_temporary) {
       // Se é temporário, apenas remove da lista
       setUserInterestObjects((prev) =>
-        prev.filter((i) => i.interest_area_id !== interest.interest_area_id),
+        prev.filter((i) => i.interest_area_id !== interest.interest_area_id)
       );
     } else {
       // Se existe no servidor, marca como deletado
@@ -84,8 +105,8 @@ export default function UserMainPage() {
         prev.map((i) =>
           i.interest_area_id === interest.interest_area_id
             ? { ...i, is_deleted: true }
-            : i,
-        ),
+            : i
+        )
       );
     }
     setHasChanges(true);
@@ -111,21 +132,35 @@ export default function UserMainPage() {
                   trigger_name: t,
                 })),
               }
-            : interest,
-        ),
+            : interest
+        )
       );
     } else {
       // Criando novo interesse temporário
-      const tempInterest: InterestAreaResponse = {
+      const tempInterest: PersonInterestAreaResponse = {
         interest_area_id: Date.now(), // ID temporário único
         interest_name: interestData.interest_name,
-        observation_concept_id: 2000201,
         triggers: interestData.triggers.map((t) => ({ trigger_name: t })),
         is_temporary: true, // Flag para identificar que é temporário
       };
 
       setUserInterestObjects((prev) => [...prev, tempInterest]);
     }
+
+    // Monta o dicionário { [interest_name]: [trigger_name, ...] }
+    const interestDict: Record<string, string[]> = {};
+    setUserInterestObjects((prev) => {
+      prev.forEach((interest) => {
+        if (!interest.is_deleted) {
+          interestDict[interest.interest_name] = interest.triggers.map(
+            (t) => t.trigger_name
+          );
+        }
+      });
+      // Aqui você pode enviar interestDict para onde precisar (API, etc)
+      console.log("Interest dict to send:", interestDict);
+      return prev;
+    });
 
     console.log("Marcando hasChanges = true");
     setHasChanges(true);
@@ -139,43 +174,48 @@ export default function UserMainPage() {
     try {
       // 1. Deletar interesses marcados como deletados
       const toDelete = userInterestObjects.filter(
-        (i) => i.is_deleted && !i.is_temporary,
+        (i) => i.is_deleted && !i.is_temporary
       );
+
+      // Prepare the data for PATCH request with empty triggers
       for (const interest of toDelete) {
-        await InterestAreasService.personInterestAreasDestroy(
-          interest.interest_area_id,
-        );
+        await InterestAreasService.personInterestAreasPartialUpdate({
+          interest_area_name: interest.interest_name,
+          trigger_names: [],
+        });
       }
 
       // 2. Criar novos interesses temporários
       const toCreate = userInterestObjects.filter(
-        (i) => i.is_temporary && !i.is_deleted,
+        (i) => i.is_temporary && !i.is_deleted
       );
       const createdInterests = [];
 
       for (const interest of toCreate) {
-        const newInterestArea: InterestArea = {
-          interest_name: interest.interest_name,
-          observation_concept_id: 2000201,
-          triggers:
-            interest.triggers?.map((t) => ({
-              trigger_name: t.trigger_name,
-              observation_concept_id: 2000301,
-            })) || [],
+        // For custom interests
+        console.log("Criando novo interesse:");
+        console.log(interest);
+
+        const newCustomInterest = {
+          interest_area_name: interest.interest_name,
+          trigger_names: interest.triggers?.map((t) => t.trigger_name) || [],
         };
 
         const result =
-          await InterestAreasService.personInterestAreasCreate(newInterestArea);
-        if (result && "interest_area_id" in result) {
+          await InterestAreasService.personCustomInterestAreaCreate(
+            newCustomInterest
+          );
+
+        if (result) {
           createdInterests.push({
-            ...result,
-            interest_name: interest.interest_name,
-            triggers: interest.triggers,
-          } as InterestAreaResponse);
+            ...interest,
+            interest_area_id: Date.now() + createdInterests.length, // Temporary id
+            is_temporary: false,
+          });
         }
       }
 
-      // 3. Atualizar interesses modificados (deletar e recriar)
+      // 3. Update existing interests
       const toUpdate = userInterestObjects.filter(
         (i) =>
           !i.is_temporary &&
@@ -183,53 +223,52 @@ export default function UserMainPage() {
           hasInterestChanged(
             i,
             originalInterests.find(
-              (o) => o.interest_area_id === i.interest_area_id,
-            ),
-          ),
+              (o) => o.interest_area_id === i.interest_area_id
+            )
+          )
       );
 
       const updatedInterests = [];
       for (const interest of toUpdate) {
-        // Deletar versão antiga
-        await InterestAreasService.personInterestAreasDestroy(
-          interest.interest_area_id,
-        );
-
-        // Criar versão nova
-        const updatedInterestArea: InterestArea = {
-          interest_name: interest.interest_name,
-          observation_concept_id: 2000201,
-          triggers:
-            interest.triggers?.map((t) => ({
-              trigger_name: t.trigger_name,
-              observation_concept_id: 2000301,
-            })) || [],
+        // Update using PATCH
+        const updatedData = {
+          interest_area_name: interest.interest_name,
+          trigger_names: interest.triggers?.map((t) => t.trigger_name) || [],
         };
 
         const result =
-          await InterestAreasService.personInterestAreasCreate(
-            updatedInterestArea,
+          await InterestAreasService.personInterestAreasPartialUpdate(
+            updatedData
           );
-        if (result && "interest_area_id" in result) {
+
+        if (result) {
           updatedInterests.push({
-            ...result,
-            interest_name: interest.interest_name,
-            triggers: interest.triggers,
-          } as InterestAreaResponse);
+            ...interest,
+            is_temporary: false,
+          });
         }
       }
 
-      // 4. Atualizar estado local com dados finais do servidor
-      const finalInterests = [
-        ...userInterestObjects.filter(
-          (i) => !i.is_temporary && !i.is_deleted && !toUpdate.includes(i),
-        ),
-        ...createdInterests,
-        ...updatedInterests,
-      ];
+      // 4. Reload from server to get fresh data
+      const response = await InterestAreasService.personInterestAreasList();
+      const interestDict = response?.interest_areas?.interest || {};
+      const observationId = response?.observation_id || 0;
 
-      setUserInterestObjects(finalInterests);
-      setOriginalInterests([...finalInterests]);
+      // Transform back to array of objects
+      const refreshedInterests: PersonInterestAreaResponse[] = Object.entries(
+        interestDict
+      ).map(([interestName, triggersList], index) => ({
+        interest_area_id: observationId + index,
+        interest_name: interestName,
+        triggers: (triggersList as string[]).map((name) => ({
+          trigger_name: name,
+        })),
+        is_temporary: false,
+        is_deleted: false,
+      }));
+
+      setUserInterestObjects(refreshedInterests);
+      setOriginalInterests([...refreshedInterests]);
       setHasChanges(false);
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 3000);
@@ -243,8 +282,8 @@ export default function UserMainPage() {
 
   // Helper para verificar se interesse foi modificado
   const hasInterestChanged = (
-    current: InterestAreaResponse,
-    original?: InterestAreaResponse,
+    current: PersonInterestAreaResponse,
+    original?: PersonInterestAreaResponse
   ) => {
     if (!original) return false;
 
@@ -284,7 +323,7 @@ export default function UserMainPage() {
   };
 
   // Handlers para a interface
-  const handleEditInterest = (interest: InterestAreaResponse) => {
+  const handleEditInterest = (interest: PersonInterestAreaResponse) => {
     setEditingInterest(interest);
     setDialogOpen(true);
   };
@@ -294,7 +333,7 @@ export default function UserMainPage() {
     setDialogOpen(true);
   };
 
-  const handleDeleteInterest = (interest: InterestAreaResponse) => {
+  const handleDeleteInterest = (interest: PersonInterestAreaResponse) => {
     setInterestToDelete(interest);
     setConfirmDeleteOpen(true);
   };
@@ -411,12 +450,11 @@ export default function UserMainPage() {
                       Não salvo
                     </span>
                   )}
-                  {interest.observation_concept_id === 2000201 &&
-                    !interest.is_temporary && (
-                      <span className="ml-2 text-xs bg-violet-600 text-white dark:bg-purple-900/50 dark:text-purple-200 px-2 py-1 rounded-full font-medium border border-violet-700 dark:border-purple-700 flex-shrink-0">
-                        Personalizado
-                      </span>
-                    )}
+                  {!interest.is_temporary && (
+                    <span className="ml-2 text-xs bg-violet-600 text-white dark:bg-purple-900/50 dark:text-purple-200 px-2 py-1 rounded-full font-medium border border-violet-700 dark:border-purple-700 flex-shrink-0">
+                      Personalizado
+                    </span>
+                  )}
                 </h3>
                 <div className="space-y-1">
                   {interest.triggers?.map((t, index) => (
@@ -482,8 +520,8 @@ export default function UserMainPage() {
               {isSyncing
                 ? "..."
                 : hasChanges
-                  ? "✓ Salvar Mudanças"
-                  : "✓ Salvar"}
+                ? "✓ Salvar Mudanças"
+                : "✓ Salvar"}
             </Button>
             <Button
               onClick={handleCreateNewInterest}

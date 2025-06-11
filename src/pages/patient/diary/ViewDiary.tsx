@@ -7,18 +7,12 @@ import { ErrorMessage } from "@/components/ui/error-message";
 
 // Updated interfaces to match actual server response structure
 interface DiaryTrigger {
-  trigger_id: number;
-  trigger_name: string;
-  observation_concept_id: number;
-  value_as_string: string | null;
+  trigger: string;
+  value: string;
 }
 
 interface DiaryInterestArea {
-  interest_area_id: number;
-  interest_name: string;
-  observation_concept_id: number;
-  value_as_string: string | null;
-  value_as_concept: number | null;
+  interest: string;
   shared_with_provider: boolean;
   triggers: DiaryTrigger[];
 }
@@ -28,7 +22,6 @@ interface DiaryEntry {
   value_as_string: string;
   shared_with_provider: boolean;
   created_at: string;
-  observation_concept: number;
 }
 
 interface DiaryData {
@@ -68,7 +61,7 @@ export default function ViewDiaryEntry() {
         } else {
           console.error(
             "Diary not found or invalid response format:",
-            response,
+            response
           );
           setError("Diário não encontrado ou formato inválido.");
         }
@@ -101,17 +94,18 @@ export default function ViewDiaryEntry() {
 
   // Get general text entry if available
   const getGeneralTextEntry = (): { text: string; shared: boolean } | null => {
-    if (!diary || !diary.entries || diary.entries.length === 0) {
+    if (!diary || !Array.isArray(diary.entries) || diary.entries.length === 0) {
       return null;
     }
 
-    // Find the general text entry (usually observation_concept = 999002)
     for (const entry of diary.entries) {
-      // If we have text content, return it regardless of concept ID
-      if (entry.value_as_string && entry.value_as_string.trim() !== "") {
+      if (
+        typeof entry.value_as_string === "string" &&
+        entry.value_as_string.trim() !== ""
+      ) {
         return {
           text: entry.value_as_string,
-          shared: entry.shared_with_provider,
+          shared: !!entry.shared_with_provider,
         };
       }
     }
@@ -164,9 +158,10 @@ export default function ViewDiaryEntry() {
   const hasContent =
     (textEntry && textEntry.text) ||
     (diary.interest_areas &&
-      diary.interest_areas.some(
-        (area) => area.triggers && area.triggers.some((t) => t.value_as_string),
-      ));
+      diary.interest_areas.some((area) => {
+        // Check if it's the new format with interest and triggers
+        return area.triggers.some((trigger) => trigger.value);
+      }));
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -195,6 +190,7 @@ export default function ViewDiaryEntry() {
       </div>
 
       {/* Interest Areas Section - Only show if there are interests with responses */}
+      {/* Interest Areas Section - Only show if there are interests with responses */}
       {diary.interest_areas && diary.interest_areas.length > 0 && (
         <div className="space-y-4 mb-6">
           <div className="flex flex-col gap-1">
@@ -204,50 +200,51 @@ export default function ViewDiaryEntry() {
           </div>
 
           <div className="space-y-6">
-            {diary.interest_areas.map((interest) => {
-              // Only show triggers that have responses
-              const triggersWithResponses = interest.triggers.filter(
-                (t) => t.value_as_string && t.value_as_string.trim() !== "",
-              );
+            {diary.interest_areas.map((area, index) => {
+              // Check if it's the new format
+              if (area.interest && area.triggers) {
+                // New format - filter triggers with responses
+                const triggersWithResponses = area.triggers.filter(
+                  (t) => t.value
+                );
+                console.log("Trigger value:", triggersWithResponses); // Debugging line
 
-              if (triggersWithResponses.length === 0) return null;
+                if (triggersWithResponses.length === 0) return null;
 
-              return (
-                <div key={interest.interest_area_id} className="space-y-3">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <HabitCard
-                        title={
-                          interest.interest_name ||
-                          `Interesse ${interest.interest_area_id}`
-                        }
-                        className="inline-block w-auto min-w-fit max-w-full"
-                      />
-                      <span className="text-sm text-gray-500">
-                        Compartilhado:{" "}
-                        {interest.shared_with_provider ? "Sim" : "Não"}
-                      </span>
+                return (
+                  <div key={index} className="space-y-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <HabitCard
+                          title={area.interest || "Interesse"}
+                          className="inline-block w-auto min-w-fit max-w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="ml-4 border-l-2 border-gray-200 pl-4">
+                      {triggersWithResponses.map((trigger, idx) => (
+                        <div key={idx} className="mt-3 space-y-2">
+                          {/* Trigger name as question */}
+                          <div className="font-medium text-sm text-neutral-700 mb-1">
+                            {trigger.trigger || "Pergunta"}
+                          </div>
+
+                          {/* Show the trigger value directly */}
+                          <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap">
+                            {typeof trigger.value === "object" &&
+                            trigger.value.value
+                              ? trigger.value.value
+                              : typeof trigger.value === "string"
+                              ? trigger.value
+                              : ""}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  <div className="ml-4 border-l-2 border-gray-200 pl-4">
-                    {triggersWithResponses.map((trigger) => (
-                      <div key={trigger.trigger_id} className="mt-3 space-y-2">
-                        {/* Trigger title as question */}
-                        <div className="font-medium text-sm text-neutral-700 mb-1">
-                          {trigger.trigger_name ||
-                            `Pergunta ${trigger.trigger_id}`}
-                        </div>
-
-                        {/* Removed HabitCard for triggers, showing full question instead */}
-                        <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap">
-                          {trigger.value_as_string}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
+                );
+              }
             })}
           </div>
         </div>
