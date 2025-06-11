@@ -3,9 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Header from "@/components/ui/header";
 import { PersonService } from "@/api/services/PersonService";
 import type { PersonRetrieve } from "@/api/models/PersonRetrieve";
-import type { PatchedMarkAttentionPoint } from "@/api/models/PatchedMarkAttentionPoint";
 import { ProviderService } from "@/api/services/ProviderService";
-import { InterestAreasService } from "@/api/services/InterestAreasService";
 import { ErrorMessage } from "@/components/ui/error-message";
 
 // Interface para as entradas do diário
@@ -58,6 +56,26 @@ export default function ViewDiary() {
   const [expandedInterests, setExpandedInterests] = useState<Set<number>>(
     new Set(),
   );
+  const [localAttentionPoints, setLocalAttentionPoints] = useState<Set<number>>(new Set());
+
+  // Carregar pontos de atenção salvos localmente
+  useEffect(() => {
+    const loadLocalAttentionPoints = () => {
+      const saved = localStorage.getItem(`attentionPoints_${personId}`);
+      if (saved) {
+        try {
+          const parsedPoints = JSON.parse(saved);
+          setLocalAttentionPoints(new Set(parsedPoints));
+        } catch (e) {
+          console.error("Erro ao carregar pontos de atenção salvos:", e);
+        }
+      }
+    };
+
+    if (personId) {
+      loadLocalAttentionPoints();
+    }
+  }, [personId]);
 
   useEffect(() => {
     if (diaryId && personId) {
@@ -179,27 +197,24 @@ export default function ViewDiary() {
         "Current state:",
         isCurrentlyFlagged,
       );
-      const updatedArea: PatchedMarkAttentionPoint = {
-        area_id: areaId,
-        is_attention_point: !isCurrentlyFlagged,
-      };
-      await InterestAreasService.markObservationAsAttentionPoint(updatedArea);
-
-      setDiary((prevDiary) => {
-        if (!prevDiary) return prevDiary;
-        return {
-          ...prevDiary,
-          interest_areas: (prevDiary.interest_areas ?? []).map((area) =>
-            area.interest_area_id === areaId
-              ? {
-                  ...area,
-                  is_attention_point: updatedArea.is_attention_point,
-                  provider_name: updatedArea.is_attention_point ? "Você" : null,
-                }
-              : area,
-          ),
-        };
-      });
+      
+      // Atualizar estado local
+      const newAttentionPoints = new Set(localAttentionPoints);
+      if (isCurrentlyFlagged) {
+        newAttentionPoints.delete(areaId);
+      } else {
+        newAttentionPoints.add(areaId);
+      }
+      
+      setLocalAttentionPoints(newAttentionPoints);
+      
+      // Salvar no localStorage
+      localStorage.setItem(
+        `attentionPoints_${personId}`,
+        JSON.stringify(Array.from(newAttentionPoints))
+      );
+      
+      console.log("Pontos de atenção salvos localmente:", Array.from(newAttentionPoints));
     } catch (error) {
       console.error("Erro ao atualizar área de interesse:", error);
       setError("Não foi possível atualizar a área de interesse.");
@@ -212,11 +227,11 @@ export default function ViewDiary() {
         title="Visualizar Diário do Paciente"
         onBackClick={() => navigate(-1)}
         subtitle={
-          diary?.date
-            ? formatDate(diary.date)
-            : patient?.first_name
-              ? `${patient.first_name} ${patient.last_name || ""}`.trim()
-              : "Visualização do Diário"
+          diary?.date 
+            ? formatDate(diary.date) 
+            : patient?.first_name 
+            ? `${patient.first_name} ${patient.last_name || ""}`.trim()
+            : "Visualização do Diário"
         }
       />
 
@@ -243,20 +258,9 @@ export default function ViewDiary() {
                 Informações do Paciente
               </h3>
               <div className="space-y-2 text-sm">
-                <p>
-                  <span className="font-medium">Nome:</span>{" "}
-                  {patient.social_name ||
-                    `${patient.first_name} ${patient.last_name || ""}`.trim() ||
-                    "Não informado"}
-                </p>
-                <p>
-                  <span className="font-medium">ID:</span> {patient.person_id}
-                </p>
-                {patient.email && (
-                  <p>
-                    <span className="font-medium">Email:</span> {patient.email}
-                  </p>
-                )}
+                <p><span className="font-medium">Nome:</span> {patient.social_name || `${patient.first_name} ${patient.last_name || ""}`.trim() || "Não informado"}</p>
+                <p><span className="font-medium">ID:</span> {patient.person_id}</p>
+                {patient.email && <p><span className="font-medium">Email:</span> {patient.email}</p>}
               </div>
             </div>
           )}
@@ -268,8 +272,8 @@ export default function ViewDiary() {
             </h3>
             <div className="bg-primary p-4 rounded-lg border border-border">
               <span className="text-sm text-muted-foreground">
-                {diary.scope === "today"
-                  ? "Registros do dia de hoje"
+                {diary.scope === "today" 
+                  ? "Registros do dia de hoje" 
                   : "Registros desde a última entrada"}
               </span>
             </div>
@@ -284,24 +288,20 @@ export default function ViewDiary() {
               <div className="space-y-4">
                 {diary.interest_areas.map((interest) => {
                   if (!interest.interest_area_id) return null;
-
-                  const isExpanded = expandedInterests.has(
-                    interest.interest_area_id,
-                  );
-                  const hasResponses =
-                    interest.triggers &&
-                    interest.triggers.some((t) => t.value_as_string);
+                  
+                  const isExpanded = expandedInterests.has(interest.interest_area_id);
+                  const hasResponses = interest.triggers && interest.triggers.some(t => t.value_as_string);
+                  // Verifica se é ponto de atenção usando estado local OU o estado do backend
+                  const isAttentionPoint = localAttentionPoints.has(interest.interest_area_id) || interest.is_attention_point;
 
                   return (
                     <div
                       key={interest.interest_area_id}
                       className="bg-card border border-border rounded-xl shadow-sm"
                     >
-                      <div
+                      <div 
                         className="p-5 cursor-pointer"
-                        onClick={() =>
-                          toggleInterest(interest.interest_area_id!)
-                        }
+                        onClick={() => toggleInterest(interest.interest_area_id!)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 flex-1">
@@ -309,35 +309,29 @@ export default function ViewDiary() {
                             <h4 className="font-bold text-lg text-card-foreground">
                               {interest.interest_name}
                             </h4>
-                            {interest.is_attention_point && (
-                              <span className="text-destructive text-lg">
-                                ⚠️
-                              </span>
+                            {isAttentionPoint && (
+                              <span className="text-destructive text-lg">⚠️</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-success text-sm font-medium">
                               ✓ Compartilhado
                             </span>
-                            <span
-                              className={`transform transition-transform duration-200 ${
-                                isExpanded ? "rotate-180" : ""
-                              }`}
-                            >
+                            <span className={`transform transition-transform duration-200 ${
+                              isExpanded ? 'rotate-180' : ''
+                            }`}>
                               ▼
                             </span>
                           </div>
                         </div>
 
-                        {interest.is_attention_point &&
-                          interest.provider_name && (
-                            <div className="mt-2">
-                              <span className="text-xs text-destructive italic">
-                                Marcado como ponto de atenção por{" "}
-                                {interest.provider_name}
-                              </span>
-                            </div>
-                          )}
+                        {interest.is_attention_point && interest.provider_name && (
+                          <div className="mt-2">
+                            <span className="text-xs text-destructive italic">
+                              Marcado como ponto de atenção por {interest.provider_name}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {isExpanded && (
@@ -348,47 +342,36 @@ export default function ViewDiary() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleAttentionToggle(
-                                    interest.interest_area_id!,
-                                    interest.is_attention_point || false,
-                                  );
+                                  handleAttentionToggle(interest.interest_area_id!, isAttentionPoint || false);
                                 }}
                                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                                  interest.is_attention_point
-                                    ? "bg-destructive text-white hover:bg-destructive/80"
-                                    : "bg-orange-500 text-white hover:bg-orange-600"
+                                  isAttentionPoint
+                                    ? 'bg-destructive text-white hover:bg-destructive/80'
+                                    : 'bg-orange-500 text-white hover:bg-orange-600'
                                 }`}
                               >
-                                {interest.is_attention_point
-                                  ? "Remover atenção ⚠️"
-                                  : "Marcar atenção ⚠️"}
+                                {isAttentionPoint ? "Remover atenção ⚠️" : "Marcar atenção ⚠️"}
                               </button>
                             </div>
 
                             {/* Responses */}
                             {hasResponses ? (
                               <div className="space-y-3">
-                                <h5 className="font-medium text-sm text-muted-foreground mb-2">
-                                  Respostas:
-                                </h5>
-                                {interest.triggers?.map(
-                                  (trigger, index) =>
-                                    trigger.value_as_string && (
-                                      <div
-                                        key={trigger.trigger_id || index}
-                                        className="bg-background p-3 rounded-lg border-l-4 border-primary"
-                                      >
-                                        <div className="text-sm">
-                                          <span className="font-medium text-foreground">
-                                            {trigger.trigger_name}:
-                                          </span>
-                                          <span className="ml-2 text-muted-foreground">
-                                            {trigger.value_as_string}
-                                          </span>
-                                        </div>
+                                <h5 className="font-medium text-sm text-muted-foreground mb-2">Respostas:</h5>
+                                {interest.triggers?.map((trigger, index) => (
+                                  trigger.value_as_string && (
+                                    <div key={trigger.trigger_id || index} className="bg-background p-3 rounded-lg border-l-4 border-primary">
+                                      <div className="text-sm">
+                                        <span className="font-medium text-foreground">
+                                          {trigger.trigger_name}: 
+                                        </span>
+                                        <span className="ml-2 text-muted-foreground">
+                                          {trigger.value_as_string}
+                                        </span>
                                       </div>
-                                    ),
-                                )}
+                                    </div>
+                                  )
+                                ))}
                               </div>
                             ) : (
                               <p className="text-sm text-muted-foreground italic">
