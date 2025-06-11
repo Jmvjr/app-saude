@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type InterestAreaTrigger = {
-    trigger_dict: Record<string, any>;
+  trigger_dict: Record<string, any>;
 };
-

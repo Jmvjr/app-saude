@@ -136,14 +136,14 @@ export default function DiaryListPage() {
     // Include diary entry text if available
     if (diary.entries && diary.entries.length > 0) {
       const textEntry = diary.entries.find(
-        (e) => e.value_as_string && e.value_as_string.trim() !== ""
+        (e) => e.value_as_string && e.value_as_string.trim() !== "",
       );
       if (textEntry) {
         summary = textEntry.value_as_string;
 
         // If we also have trigger responses, add an indicator
         const hasTriggerResponses = diary.interest_areas?.some(
-          (area) => area.triggers?.some((t) => t.value) // Simplified check for any value
+          (area) => area.triggers?.some((t) => t.value), // Simplified check for any value
         );
 
         if (hasTriggerResponses) {
@@ -158,7 +158,7 @@ export default function DiaryListPage() {
     // If no text entry, show trigger responses
     const triggersWithResponses =
       diary.interest_areas?.flatMap((area) =>
-        area.triggers.filter((t) => t.value)
+        area.triggers.filter((t) => t.value),
       ) || [];
 
     if (triggersWithResponses.length > 0) {
@@ -182,7 +182,7 @@ export default function DiaryListPage() {
 
     // Check for text entry
     const hasTextEntry = diary.entries?.some(
-      (e) => e.value_as_string && e.value_as_string.trim() !== ""
+      (e) => e.value_as_string && e.value_as_string.trim() !== "",
     );
 
     if (hasTextEntry) {
@@ -193,7 +193,7 @@ export default function DiaryListPage() {
     const triggerCount =
       diary.interest_areas?.reduce(
         (count, area) => count + area.triggers.filter((t) => t.value).length,
-        0
+        0,
       ) || 0;
 
     if (triggerCount > 0) {

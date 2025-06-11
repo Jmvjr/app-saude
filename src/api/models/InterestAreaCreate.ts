@@ -3,6 +3,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type InterestAreaCreate = {
-    interest_area_ids: Array<number>;
+  interest_area_ids: Array<number>;
 };
-

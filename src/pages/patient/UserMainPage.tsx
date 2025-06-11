@@ -66,7 +66,7 @@ export default function UserMainPage() {
 
         // Transform the dictionary into an array of InterestAreaResponse objects
         const userInterests: PersonInterestAreaResponse[] = Object.entries(
-          interestDict
+          interestDict,
         ).map(([interestName, triggersList], index) => ({
           interest_area_id: observationId + index, // Use observation_id as base
           interest_name: interestName,
@@ -97,7 +97,7 @@ export default function UserMainPage() {
     if (interest.is_temporary) {
       // Se é temporário, apenas remove da lista
       setUserInterestObjects((prev) =>
-        prev.filter((i) => i.interest_area_id !== interest.interest_area_id)
+        prev.filter((i) => i.interest_area_id !== interest.interest_area_id),
       );
     } else {
       // Se existe no servidor, marca como deletado
@@ -105,8 +105,8 @@ export default function UserMainPage() {
         prev.map((i) =>
           i.interest_area_id === interest.interest_area_id
             ? { ...i, is_deleted: true }
-            : i
-        )
+            : i,
+        ),
       );
     }
     setHasChanges(true);
@@ -132,8 +132,8 @@ export default function UserMainPage() {
                   trigger_name: t,
                 })),
               }
-            : interest
-        )
+            : interest,
+        ),
       );
     } else {
       // Criando novo interesse temporário
@@ -153,7 +153,7 @@ export default function UserMainPage() {
       prev.forEach((interest) => {
         if (!interest.is_deleted) {
           interestDict[interest.interest_name] = interest.triggers.map(
-            (t) => t.trigger_name
+            (t) => t.trigger_name,
           );
         }
       });
@@ -174,7 +174,7 @@ export default function UserMainPage() {
     try {
       // 1. Deletar interesses marcados como deletados
       const toDelete = userInterestObjects.filter(
-        (i) => i.is_deleted && !i.is_temporary
+        (i) => i.is_deleted && !i.is_temporary,
       );
 
       // Prepare the data for PATCH request with empty triggers
@@ -187,7 +187,7 @@ export default function UserMainPage() {
 
       // 2. Criar novos interesses temporários
       const toCreate = userInterestObjects.filter(
-        (i) => i.is_temporary && !i.is_deleted
+        (i) => i.is_temporary && !i.is_deleted,
       );
       const createdInterests = [];
 
@@ -203,7 +203,7 @@ export default function UserMainPage() {
 
         const result =
           await InterestAreasService.personCustomInterestAreaCreate(
-            newCustomInterest
+            newCustomInterest,
           );
 
         if (result) {
@@ -223,9 +223,9 @@ export default function UserMainPage() {
           hasInterestChanged(
             i,
             originalInterests.find(
-              (o) => o.interest_area_id === i.interest_area_id
-            )
-          )
+              (o) => o.interest_area_id === i.interest_area_id,
+            ),
+          ),
       );
 
       const updatedInterests = [];
@@ -238,7 +238,7 @@ export default function UserMainPage() {
 
         const result =
           await InterestAreasService.personInterestAreasPartialUpdate(
-            updatedData
+            updatedData,
           );
 
         if (result) {
@@ -256,7 +256,7 @@ export default function UserMainPage() {
 
       // Transform back to array of objects
       const refreshedInterests: PersonInterestAreaResponse[] = Object.entries(
-        interestDict
+        interestDict,
       ).map(([interestName, triggersList], index) => ({
         interest_area_id: observationId + index,
         interest_name: interestName,
@@ -283,7 +283,7 @@ export default function UserMainPage() {
   // Helper para verificar se interesse foi modificado
   const hasInterestChanged = (
     current: PersonInterestAreaResponse,
-    original?: PersonInterestAreaResponse
+    original?: PersonInterestAreaResponse,
   ) => {
     if (!original) return false;
 
@@ -520,8 +520,8 @@ export default function UserMainPage() {
               {isSyncing
                 ? "..."
                 : hasChanges
-                ? "✓ Salvar Mudanças"
-                : "✓ Salvar"}
+                  ? "✓ Salvar Mudanças"
+                  : "✓ Salvar"}
             </Button>
             <Button
               onClick={handleCreateNewInterest}

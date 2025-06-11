@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type PersonInterestArea = {
-    interest_area_dict: Record<string, any>;
-    observation_id: number;
+  interest_area_dict: Record<string, any>;
+  observation_id: number;
 };
-

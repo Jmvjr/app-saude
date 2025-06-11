@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type PatchedInterestAreaUpdate = {
-    interest_area_name?: string;
-    trigger_names?: Array<string>;
+  interest_area_name?: string;
+  trigger_names?: Array<string>;
 };
-

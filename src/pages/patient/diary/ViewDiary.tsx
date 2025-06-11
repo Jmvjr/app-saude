@@ -61,7 +61,7 @@ export default function ViewDiaryEntry() {
         } else {
           console.error(
             "Diary not found or invalid response format:",
-            response
+            response,
           );
           setError("Diário não encontrado ou formato inválido.");
         }
@@ -205,7 +205,7 @@ export default function ViewDiaryEntry() {
               if (area.interest && area.triggers) {
                 // New format - filter triggers with responses
                 const triggersWithResponses = area.triggers.filter(
-                  (t) => t.value
+                  (t) => t.value,
                 );
                 console.log("Trigger value:", triggersWithResponses); // Debugging line
 
@@ -236,8 +236,8 @@ export default function ViewDiaryEntry() {
                             trigger.value.value
                               ? trigger.value.value
                               : typeof trigger.value === "string"
-                              ? trigger.value
-                              : ""}
+                                ? trigger.value
+                                : ""}
                           </div>
                         </div>
                       ))}

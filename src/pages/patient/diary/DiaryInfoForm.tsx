@@ -43,7 +43,7 @@ export default function DiaryInfoForm() {
   // Estados do formulário
   const [openTriggers, setOpenTriggers] = useState<Record<number, boolean>>({});
   const [timeRange, setTimeRange] = useState<"today" | "sinceLast">(
-    "sinceLast"
+    "sinceLast",
   );
   const [freeText, setFreeText] = useState("");
   const [shareText, setShareText] = useState(false);
@@ -72,14 +72,14 @@ export default function DiaryInfoForm() {
 
         // Transform the dictionary into an array of UserInterest objects
         const formattedInterests: UserInterest[] = Object.entries(
-          interestDict
+          interestDict,
         ).map(([interestName, triggersList], index) => {
           // Make sure triggersList is treated as an array
           const triggersArray = Array.isArray(triggersList)
             ? triggersList
             : typeof triggersList === "object" && triggersList !== null
-            ? Object.values(triggersList)
-            : [String(triggersList)];
+              ? Object.values(triggersList)
+              : [String(triggersList)];
 
           return {
             interest_area_id: observationId + index,
@@ -142,14 +142,14 @@ export default function DiaryInfoForm() {
 
   const handleInterestResponseChange = (
     interestId: number,
-    response: string
+    response: string,
   ) => {
     setUserInterests((prev) =>
       prev.map((interest) =>
         interest.interest_area_id === interestId
           ? { ...interest, response }
-          : interest
-      )
+          : interest,
+      ),
     );
   };
 
@@ -158,15 +158,15 @@ export default function DiaryInfoForm() {
       prev.map((interest) =>
         interest.interest_area_id === interestId
           ? { ...interest, shared }
-          : interest
-      )
+          : interest,
+      ),
     );
   };
 
   const handleTriggerResponseChange = (
     interestId: number,
     triggerId: number,
-    response: string
+    response: string,
   ) => {
     setUserInterests((prev) =>
       prev.map((interest) =>
@@ -177,11 +177,11 @@ export default function DiaryInfoForm() {
                 interest.triggers?.map((trigger) =>
                   trigger.trigger_id === triggerId
                     ? { ...trigger, response }
-                    : trigger
+                    : trigger,
                 ) || [],
             }
-          : interest
-      )
+          : interest,
+      ),
     );
   };
 
@@ -203,7 +203,7 @@ export default function DiaryInfoForm() {
         .filter(
           (interest) =>
             interest.response?.trim() !== "" ||
-            interest.triggers?.some((t) => t.response?.trim() !== "")
+            interest.triggers?.some((t) => t.response?.trim() !== ""),
         )
         .forEach((interest) => {
           // Criar objeto para cada interesse
@@ -266,7 +266,7 @@ export default function DiaryInfoForm() {
     } catch (error) {
       console.error("Erro ao salvar diário:", error);
       setSubmitError(
-        "Ocorreu um erro ao salvar o diário. Por favor, tente novamente."
+        "Ocorreu um erro ao salvar o diário. Por favor, tente novamente.",
       );
     } finally {
       setIsSubmitting(false);
@@ -282,7 +282,7 @@ export default function DiaryInfoForm() {
   const answeredInterests = userInterests.filter(
     (interest) =>
       interest.response?.trim() ||
-      interest.triggers?.some((t) => t.response?.trim())
+      interest.triggers?.some((t) => t.response?.trim()),
   ).length;
 
   return (
@@ -370,20 +370,20 @@ export default function DiaryInfoForm() {
                   onResponseChange={(response) =>
                     handleInterestResponseChange(
                       interest.interest_area_id,
-                      response
+                      response,
                     )
                   }
                   onSharingToggle={(shared) =>
                     handleInterestSharingToggle(
                       interest.interest_area_id,
-                      shared
+                      shared,
                     )
                   }
                   onTriggerResponseChange={(triggerId, response) =>
                     handleTriggerResponseChange(
                       interest.interest_area_id,
                       triggerId,
-                      response
+                      response,
                     )
                   }
                 />

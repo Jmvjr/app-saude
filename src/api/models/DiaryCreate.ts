@@ -2,13 +2,12 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { DateRangeTypeEnum } from './DateRangeTypeEnum';
-import type { FullInterestArea } from './FullInterestArea';
+import type { DateRangeTypeEnum } from "./DateRangeTypeEnum";
+import type { FullInterestArea } from "./FullInterestArea";
 export type DiaryCreate = {
-    date_range_type: DateRangeTypeEnum;
-    text: string;
-    text_shared: boolean;
-    diary_shared: boolean;
-    interest_areas: FullInterestArea;
+  date_range_type: DateRangeTypeEnum;
+  text: string;
+  text_shared: boolean;
+  diary_shared: boolean;
+  interest_areas: FullInterestArea;
 };
-
